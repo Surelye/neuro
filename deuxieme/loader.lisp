@@ -1,0 +1,7 @@
+(load "src/premier/error-checker.lisp")
+(load "src/premier/auxil.lisp")
+(load "src/premier/xml-saver.lisp")
+(load "src/premier/nntask1.lisp")
+(load "src/graph-io.lisp")
+(load "src/graph-aux.lisp")
+(load "src/nntask2.lisp")

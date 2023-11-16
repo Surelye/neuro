@@ -13,7 +13,7 @@
 
 
 (defun nntask2 ()
-  (let (cyclic? graph prefix)
+  (let (cyclic? graph prefix output)
     (when (not (nntask1:nntask1))
       (return-from nntask2))
     (setq graph (graph-io:parse-xml-graph "temp")
@@ -24,5 +24,7 @@
               (mapcar #'1+ cyclic?))
       (format t "~2%Представление функции в префиксной нотации не может быть получено.")
       (return-from nntask2))
-    (setq prefix (graph-aux:get-prefix-notation graph))
-    (write-to-file prefix "temp") t))
+    (format t "~2%Введите имя файла, в который будет записан граф в префиксной форме: ")
+    (setq output (read-line)
+          prefix (graph-aux:get-prefix-notation graph))
+    (write-to-file prefix output) output))

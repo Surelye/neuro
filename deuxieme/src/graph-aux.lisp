@@ -47,6 +47,27 @@
       (setq cycle (cons v cycle)))))
 
 
+(defun gnlp (expr) ; gnlp -> get-non-lisp-prefix
+  (flet ((wts (val)
+           (write-to-string val))
+         (conc (&rest args)
+           (reduce #'(lambda (f s)
+                       (concatenate 'string f s)) args)))
+    (let ((f (first expr)) (s (second expr)) (th (third expr)))
+      (conc (wts f) "("
+            (if (null th)
+                (if (atom s)
+                    (wts s)
+                    (gnlp s))
+                (if (atom s)
+                    (if (atom th)
+                        (conc (wts s) ", " (wts th))
+                        (conc (wts s) ", " (gnlp th)))
+                    (if (atom th)
+                        (conc (gnlp s) ", " (wts th))
+                        (conc (gnlp s) ", " (gnlp th))))) ")"))))
+
+
 (defun get-prefix-notation (graph)
   (let ((inverse-graph (make-hash-table)) final-vertex to)
     (maphash #'(lambda (key value)
@@ -63,4 +84,4 @@
                  (if (null adj)
                      vertex
                      (cons vertex (mapcar #'subs adj))))))
-      (subs final-vertex))))
+      (concatenate 'string "(" (gnlp (subs final-vertex)) ")"))))

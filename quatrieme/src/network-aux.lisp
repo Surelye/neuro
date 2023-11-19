@@ -2,6 +2,8 @@
   (:use #:cl)
   (:export #:build-network
            #:save-network-as-xml
+           #:check-correct-network
+           #:display-errors
            #:feed-network))
 
 
@@ -10,6 +12,19 @@
 
 (defun f (x)
   (/ (* 1.0 x) (1+ (abs x))))
+
+
+(defun display-errors (errors)
+  (flet ((form (str param)
+           (concatenate 'string (format nil "Ошибка в строке ~a: " (1+ param)) str)))
+    (dolist (err errors)
+      (if (atom err)
+          (format t "Некорректное содержимое входного вектора.~%")
+          (destructuring-bind (err-type aux) err
+            (format t (cond ((equal 'VEC-DIM err-type) (format nil "Некорректная размерность входного вектора (должна быть ~a).~%" aux))
+                            ((equal 'IN-LAYER-DIM err-type) (form "некорректная размерность массива связей внутри слоя.~%" aux))
+                            ((equal 'WEIGHT err-type) (form "некорректное значение веса.~%" aux))
+                            (t (form "несовпадение размерностей текущего и следующего слоя.~%" aux)))))))))
 
 
 (defun save-network-as-xml (network filename)
@@ -28,31 +43,32 @@
 
 
 (defun check-correct-network (net init-vec)
-  (when (/= (length init-vec) (length (car net)))
-    (return-from check-correct-network))
-  (let (num-cols cur-layer (num-checks (1- (length net))))
-    (do ((j 0 (1+ j))) ((= j num-checks) t)
+  (let (num-cols cur-layer (num-checks (length net)) errors)
+    (when (/= (length init-vec) (length (caar net)))
+      (setq errors (cons (list 'VEC-DIM (length (caar net))) errors)))
+    (do ((j 0 (1+ j))) ((= j num-checks) errors)
       (setq cur-layer (nth j net)
             num-cols (length (car cur-layer)))
       (unless (every #'(lambda (seq)
-                         (and (= num-cols (length seq))
-                              (every #'integerp seq)))
+                         (= num-cols (length seq)))
                      (cdr cur-layer))
-        (return-from check-correct-network))
-      (unless (= num-cols (length (nth (1+ j) net)))
-        (return-from check-correct-network)))))
+        (setq errors (cons (list 'IN-LAYER-DIM j) errors)))
+      (unless (every #'(lambda (seq)
+                         (every #'integerp seq))
+                     cur-layer)
+        (setq errors (cons (list 'WEIGHT j) errors)))
+      (when (/= j (1- num-checks))
+        (unless (= (length cur-layer) (length (car (nth (1+ j) net))))
+          (setq errors (cons (list 'LAYERS-DIM j) errors)))))))
 
 
 (defun feed-network (net init-vec)
-  (unless (check-correct-network net init-vec)
-    (return-from feed-network))
   (flet ((feed-layer (layer vec)
-           (let ((len-vec (length vec)) (len-conns (length (car layer)))
-                 out-vec temp)
-             (do ((j 0 (1+ j))) ((= j len-conns) (mapcar #'f (reverse out-vec)))
-               (setq temp 0)
-               (do ((k 0 (1+ k))) ((= k len-vec) (setq out-vec (cons temp out-vec)))
-                 (setq temp (+ (* (nth k vec) (nth j (nth k layer))) temp)))))))
+           (mapcar #'f
+                   (mapcar #'(lambda (weights)
+                               (apply #'+
+                                      (mapcar #'* weights vec)))
+                           layer))))
     (let ((vec (copy-list init-vec)))
       (dolist (layer net vec)
         (setq vec (feed-layer layer vec))))))
